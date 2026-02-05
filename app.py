@@ -20,7 +20,7 @@ def get_vedic_reading(user_query, api_key):
     try:
         genai.configure(api_key=api_key)
         # Using 2.5-flash-lite for maximum free-tier reliability
-        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         
         system_prompt = (
             "You are a master of Indian Vedic Astrology (Jyotish). "
@@ -69,3 +69,4 @@ if api_key:
                     st.session_state.messages.append({"role": "assistant", "content": response_text})
 else:
     st.warning("☸️ Please provide an API Key in the sidebar or Secrets to begin.")
+
