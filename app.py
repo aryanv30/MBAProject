@@ -36,7 +36,7 @@ with st.sidebar:
 if api_key:
     # We use the 'latest' alias so your app stays updated automatically
     # As of Jan 2026, 'gemini-flash-latest' points to Gemini 3 Flash
-    MODEL_ID = "gemini-flash-latest" 
+    MODEL_ID = "gemini-2.5-flash" 
     
     try:
         model = genai.GenerativeModel(MODEL_ID)
@@ -80,3 +80,4 @@ if api_key:
         st.error(f"Model Initialization Failed: {e}")
 else:
     st.info("Please enter your API Key in the sidebar to begin your journey.")
+
