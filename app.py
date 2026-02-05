@@ -1,45 +1,82 @@
 import streamlit as st
 import google.generativeai as genai
+import logging
 
-# 1. Setup - Use your API Key here or via secrets
-st.set_page_config(page_title="Celestial AI Astrologer", page_icon="✨")
-st.title("✨ Celestial AI Astrologer")
+# Setup standard logging for Streamlit Cloud logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Sidebar for the API Key (good for testing)
-api_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
+st.set_page_config(page_title="Celestial AI 3.0", page_icon="🌌")
+st.title("🌌 Celestial AI Astrologer")
 
+# 1. Sidebar - API Configuration & Diagnostics
+with st.sidebar:
+    st.header("⚙️ System Settings")
+    api_key = st.text_input("Enter Gemini API Key", type="password")
+    
+    if api_key:
+        genai.configure(api_key=api_key)
+        
+        # --- Diagnostic: List Available Models ---
+        st.subheader("📡 Connection Status")
+        try:
+            available_models = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    available_models.append(m.name.replace('models/', ''))
+            
+            st.success("Connected to Google AI")
+            st.write("**Available Models:**")
+            st.code("\n".join(available_models))
+            logger.info(f"Available models found: {available_models}")
+        except Exception as e:
+            st.error(f"Authentication Failed: {e}")
+
+# 2. Main Logic
 if api_key:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    # We use the 'latest' alias so your app stays updated automatically
+    # As of Jan 2026, 'gemini-flash-latest' points to Gemini 3 Flash
+    MODEL_ID = "gemini-flash-latest" 
+    
+    try:
+        model = genai.GenerativeModel(MODEL_ID)
+        
+        # Astrologer Personality
+        system_prompt = (
+            "You are a mystical AI Astrologer. Use poetic language and "
+            "provide insights based on celestial movements."
+        )
 
-    # 2. The Astrologer's Personality (System Prompt)
-    system_prompt = (
-        "You are an expert, mystical AI Astrologer. Your tone is wise, poetic, and encouraging. "
-        "Use astrological terms like 'Retrograde', 'Houses', 'Aspects', and 'Birth Chart'. "
-        "If a user doesn't provide their Sun sign or birth date, ask for it politely. "
-        "Always remind them that astrology is for guidance and entertainment."
-    )
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
 
-    # 3. Chat Interface
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        if prompt := st.chat_input("Ask about your destiny..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-    # User Input
-    if prompt := st.chat_input("Ask the stars..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+            # Response Generation with Try/Catch
+            with st.chat_message("assistant"):
+                try:
+                    full_prompt = f"{system_prompt}\n\nUser: {prompt}"
+                    response = model.generate_content(full_prompt)
+                    
+                    if response.text:
+                        st.markdown(response.text)
+                        st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    else:
+                        st.warning("The stars are silent. (Empty response from API)")
+                        
+                except Exception as e:
+                    error_msg = f"Celestial Alignment Error: {str(e)}"
+                    st.error(error_msg)
+                    logger.error(f"API Error: {e}")
 
-        # Generate response
-        with st.chat_message("assistant"):
-            full_prompt = f"{system_prompt}\n\nUser: {prompt}"
-            response = model.generate_content(full_prompt)
-            st.markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
+    except Exception as e:
+        st.error(f"Model Initialization Failed: {e}")
 else:
-    st.info("Please enter your Gemini API Key in the sidebar to begin.")
+    st.info("Please enter your API Key in the sidebar to begin your journey.")
