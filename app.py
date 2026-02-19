@@ -13,13 +13,12 @@ st.markdown("*Precision Faith-as-a-Service (FaaS) powered by Proprietary Knowled
 @st.cache_data
 def load_dataset():
     try:
-        # Looking for the exact CSV file you uploaded
-        df = pd.read_csv("Complete_Astrology_DataSet.csv")
+        # Changed the filename to .zip and added the compression parameter
+        df = pd.read_csv("Complete_Astrology_DataSet.zip", compression="zip")
         return df
     except Exception as e:
-        st.error(f"Dataset Error: {e}")
+        st.error("Missing Complete_Astrology_DataSet.zip. Please upload it.")
         return None
-
 vedic_db = load_dataset()
 
 # --- 3. TWO-STEP AI ARCHITECTURE ---
@@ -145,3 +144,4 @@ if st.button("Generate My Vedic Reading"):
                 st.json(chart_facts)
                 st.write("**2. Python found this in the CSV Dataset:**")
                 st.text(proprietary_data)
+
