@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 import time
-from datetime import datetime
+import json
 
-# --- 1. CONFIGURATION & MBA BRANDING ---
+# --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Vedic AI Oracle", page_icon="🌌", layout="centered")
 st.title("🌌 Vedic AI Oracle")
 st.markdown("*Precision Faith-as-a-Service (FaaS) powered by Proprietary Knowledge.*")
@@ -13,40 +13,57 @@ st.markdown("*Precision Faith-as-a-Service (FaaS) powered by Proprietary Knowled
 @st.cache_data
 def load_dataset():
     try:
-        # Changed the filename to .zip and added the compression parameter
-        df = pd.read_csv("Complete_Astrology_DataSet.zip", compression="zip")
+        # Looking for the exact CSV file you uploaded
+        df = pd.read_csv("Complete_Astrology_DataSet.csv")
         return df
     except Exception as e:
-        st.error("Missing Complete_Astrology_DataSet.zip. Please upload it.")
+        st.error(f"Dataset Error: {e}")
         return None
-        
+
 vedic_db = load_dataset()
 
-# --- 3. THE ASTROLOGY CALCULATION ENGINE ---
-# In a production app, this function connects to a library like 'pyswisseph' or 'kerykeion'
-# to calculate exact ephemeris data. For this prototype, we simulate the calculation engine.
-def calculate_astrology_chart(dob, time, location):
-    # SIMULATED CHART ENGINE: 
-    # This represents the mathematically perfect calculation of the user's chart.
-    # We pretend the math says the user is currently in a Sun Mahadasha, Sun Antardasha, etc.
-    return {
-        "House": 1,
-        "Planet": "Sun",
-        "Mahadasha": "Sun",
-        "Antardasha": "Sun",
-        "Pratyanerdasha": "Moon" # Using a specific combination from your CSV
-    }
+# --- 3. TWO-STEP AI ARCHITECTURE ---
 
-# --- 4. THE KNOWLEDGE RETRIEVAL SYSTEM ---
+def get_gemini_chart_calculation(dob, tob, location, api_key):
+    """Step 1: Ask Gemini to calculate the exact planetary positions."""
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    
+    prompt = f"""
+    You are a Vedic Astrology calculation engine.
+    Calculate the current astrological placements for a person born on:
+    Date: {dob}
+    Time: {tob}
+    Location: {location}
+    
+    You MUST respond with ONLY a raw JSON object. Do not add markdown blocks or explanations.
+    The JSON must contain exactly these keys: "House" (integer 1-12), "Planet", "Mahadasha", "Antardasha", "Pratyanerdasha".
+    The planets must be chosen from: Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu.
+    
+    Example output format:
+    {{"House": 7, "Planet": "Venus", "Mahadasha": "Rahu", "Antardasha": "Jupiter", "Pratyanerdasha": "Saturn"}}
+    """
+    
+    try:
+        response = model.generate_content(prompt)
+        # Clean up the response in case Gemini adds ```json to the output
+        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+        chart_data = json.loads(clean_json)
+        return chart_data
+    except Exception as e:
+        # Fallback if the AI fails to generate proper JSON
+        st.warning("Failed to calculate exact ephemeris. Using default planetary alignment.")
+        return {"House": 1, "Planet": "Sun", "Mahadasha": "Sun", "Antardasha": "Sun", "Pratyanerdasha": "Moon"}
+
 def fetch_proprietary_knowledge(chart_facts, df):
-    # This looks up the exact P&C in your custom dataset
+    """Step 2: Search the dataset using Gemini's calculated facts."""
     try:
         match = df[
-            (df['House'] == chart_facts['House']) & 
-            (df['Planet'] == chart_facts['Planet']) & 
-            (df['Mahadasha'] == chart_facts['Mahadasha']) & 
-            (df['Antardasha'] == chart_facts['Antardasha']) & 
-            (df['Pratyanerdasha'] == chart_facts['Pratyanerdasha'])
+            (df['House'] == int(chart_facts.get('House', 1))) & 
+            (df['Planet'].str.contains(chart_facts.get('Planet', 'Sun'), case=False)) & 
+            (df['Mahadasha'].str.contains(chart_facts.get('Mahadasha', 'Sun'), case=False)) & 
+            (df['Antardasha'].str.contains(chart_facts.get('Antardasha', 'Sun'), case=False)) & 
+            (df['Pratyanerdasha'].str.contains(chart_facts.get('Pratyanerdasha', 'Moon'), case=False))
         ]
         
         if not match.empty:
@@ -54,44 +71,35 @@ def fetch_proprietary_knowledge(chart_facts, df):
             remedies = match.iloc[0]['Remedies']
             return f"PROPRIETARY EFFECT: {effect}\nPROPRIETARY REMEDIES: {remedies}"
         else:
-            return "No proprietary data found for this specific micro-dasha. Rely on general Vedic texts."
+            return "No exact match in dataset. Use general Vedic principles."
     except Exception as e:
         return f"Database lookup error: {e}"
 
-# --- 5. THE GEMINI SYNTHESIS PIPELINE ---
-def generate_holistic_reading(user_name, user_question, chart_facts, proprietary_data, api_key):
+def generate_crisp_reading(user_name, user_question, chart_facts, proprietary_data, api_key):
+    """Step 3: Final Synthesis with strict formatting rules."""
     genai.configure(api_key=api_key)
-    # Using Flash-Lite for high-speed, low-cost API tier
     model = genai.GenerativeModel("gemini-2.5-flash-lite")
     
-    # This is the "System Prompt" that forces Gemini to combine everything
     prompt = f"""
-    You are an expert, empathetic Vedic Astrologer AI.
+    You are an expert, direct Vedic Astrologer AI. Do not beat around the bush.
     
-    USER DETAILS:
-    Name: {user_name}
-    User's Question: {user_question}
+    USER: {user_name}
+    QUESTION: {user_question}
+    PLANETARY FACTS: {chart_facts}
+    OUR DATABASE KNOWLEDGE: {proprietary_data}
     
-    CALCULATED PLANETARY FACTS (Do not calculate yourself, use these as absolute truth):
-    - Major Planet: {chart_facts['Planet']} in House {chart_facts['House']}
-    - Current Dasha Period: {chart_facts['Mahadasha']} Mahadasha -> {chart_facts['Antardasha']} Antardasha -> {chart_facts['Pratyanerdasha']} Pratyanterdasha
-    
-    OUR PROPRIETARY VEDIC DATABASE RESULTS:
-    {proprietary_data}
-    
-    YOUR TASK:
-    1. Acknowledge the user's question empathetically.
-    2. Explain their current planetary alignments (the Calculated Facts) in simple terms.
-    3. Provide the exact predictions and remedies from the "PROPRIETARY VEDIC DATABASE RESULTS".
-    4. Blend your deep astrological knowledge to explain *why* this remedy works.
-    5. Keep the tone spiritual, supportive, and professional.
+    INSTRUCTIONS FOR YOUR RESPONSE:
+    1. Directly answer the user's specific question based on the Database Knowledge.
+    2. Write EXACTLY 8 crisp, precise lines explaining the situation and the astrological reason behind it.
+    3. Then, leave one blank line.
+    4. Provide EXACTLY 2 lines of clear, actionable remedies based on the Database Knowledge.
+    5. Do NOT add any extra fluff, greetings, or closing statements.
     """
     
     response = model.generate_content(prompt)
     return response.text
 
-# --- 6. USER INTERFACE (STREAMLIT) ---
-# Secrets Management
+# --- 4. USER INTERFACE ---
 api_key = st.secrets.get("GOOGLE_API_KEY", "")
 if not api_key:
     api_key = st.sidebar.text_input("Enter Gemini API Key", type="password")
@@ -101,12 +109,13 @@ col1, col2, col3 = st.columns(3)
 with col1:
     user_name = st.text_input("Name", "Seeker")
 with col2:
-    dob = st.date_input("Date of Birth", datetime(1995, 1, 1))
+    dob = st.date_input("Date of Birth")
 with col3:
-    tob = st.time_input("Time of Birth", datetime.strptime("12:00", "%H:%M").time())
+    # Changed to text_input so users can freely type "10:30 AM" or "02:15 PM"
+    tob = st.text_input("Time of Birth (e.g., 10:30 AM)", "10:30 AM")
 
 location = st.text_input("City of Birth", "New Delhi, India")
-user_question = st.text_input("What guidance do you seek today?", "Will I find success in my career this year?")
+user_question = st.text_input("What specific guidance do you seek today?", "Will I find success in my career this year?")
 
 if st.button("Generate My Vedic Reading"):
     if not api_key:
@@ -114,25 +123,25 @@ if st.button("Generate My Vedic Reading"):
     elif vedic_db is None:
         st.error("Database not loaded.")
     else:
-        with st.spinner("Calculating planetary transits & consulting the ancient texts..."):
-            time.sleep(1) # Pacing for API limits
+        with st.spinner("Step 1: Calculating planetary transits..."):
+            time.sleep(1) # Pacing
+            chart_facts = get_gemini_chart_calculation(dob, tob, location, api_key)
             
-            # Step 1: Calculate the mathematical chart (Engine)
-            chart_facts = calculate_astrology_chart(dob, tob, location)
-            
-            # Step 2: Fetch your proprietary predictions from CSV
+        with st.spinner("Step 2: Consulting the ancient texts..."):
             proprietary_data = fetch_proprietary_knowledge(chart_facts, vedic_db)
             
-            # Step 3: Send everything to Gemini to write the beautiful response
-            final_reading = generate_holistic_reading(user_name, user_question, chart_facts, proprietary_data, api_key)
+        with st.spinner("Step 3: Decoding your Karma..."):
+            time.sleep(1) # Pacing
+            final_reading = generate_crisp_reading(user_name, user_question, chart_facts, proprietary_data, api_key)
             
             # Display Results
             st.success("Reading Complete")
             st.markdown("---")
             st.markdown(final_reading)
             
-            # Displaying the "Under the Hood" facts for the MBA project presentation
+            # MBA Project Proof (Expandable backend view)
             with st.expander("🔍 See FaaS Architecture (Backend Data)"):
+                st.write("**1. Gemini Calculated these positions:**")
                 st.json(chart_facts)
+                st.write("**2. Python found this in the CSV Dataset:**")
                 st.text(proprietary_data)
-
