@@ -13,13 +13,13 @@ st.markdown("*Precision Faith-as-a-Service (FaaS) powered by Proprietary Knowled
 @st.cache_data
 def load_dataset():
     try:
-        # Loads the custom dataset you uploaded
-        df = pd.read_csv("Complete_Astrology_DataSet.csv")
+        # Changed the filename to .zip and added the compression parameter
+        df = pd.read_csv("Complete_Astrology_DataSet.zip", compression="zip")
         return df
     except Exception as e:
-        st.error("Missing Complete_Astrology_DataSet.csv. Please upload it to your repository.")
+        st.error("Missing Complete_Astrology_DataSet.zip. Please upload it.")
         return None
-
+        
 vedic_db = load_dataset()
 
 # --- 3. THE ASTROLOGY CALCULATION ENGINE ---
@@ -135,3 +135,4 @@ if st.button("Generate My Vedic Reading"):
             with st.expander("🔍 See FaaS Architecture (Backend Data)"):
                 st.json(chart_facts)
                 st.text(proprietary_data)
+
