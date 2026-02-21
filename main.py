@@ -5,7 +5,16 @@ import pandas as pd
 import google.generativeai as genai
 import json
 import os
+from fastapi import FastAPI
+# ... other imports
 
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "The Astrologai Engine is Live", "version": "1.0"}
+
+# Your existing @app.post("/oracle") code below...
 app = FastAPI(title="Astrologai FaaS Engine")
 
 # Allow your React app to talk to this Python app
@@ -72,3 +81,4 @@ async def generate_reading(req: OracleRequest):
         "reading": reading,
         "remedies": remedies
     }
+
